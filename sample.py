@@ -1,3 +1,5 @@
+import numpy as np
+
 
 class F2:
   def __init__(self, number):
