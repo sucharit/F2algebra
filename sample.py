@@ -64,32 +64,85 @@ class F2vect:
 
 
 class F2matrix:
-  def __init__(self, rowNo, columnNo):
-    self.matrix = []
-    for row in range(rowNo):
-        a = []
-        for column in range(columnNo):
-            a.append(0)
-        self.matrix.append(a)
-  def __add(self,x):
+  def __init__(self, data):
+    try:
+      self.matrix=[[y % 2 for y in x] for x in data]
+      self.rowNo=len(self.matrix)
+      self.columnNo=len(self.matrix[0])
+    except  (SyntaxError, TypeError):
+      self.rowNo=data[0]
+      self.columnNo=data[1]
+      self.matrix=[[0 for y in range(self.columnNo)] for x in range(self.rowNo)]
+  def __len__(self):
+    return len(self.matrix)
+  def __repr__(self):
+    return "F2(%s)" %self.matrix
+  def __add__(self,x):
     if len(self.matrix) !=len(x):
       raise Exception("You are adding matrices of different row numbers")
     row = len(self.matrix)
     column = len(self.matrix[0])
-    c=F2matrix(len(self.matrix),len(self.matrix[0]))
-    for i in range row:
-      for j in range row[0]:
-        c[i][j]=self.matrix[i][j]+x[i][j]
-    return F2matrix(c)
+    return F2matrix([[self.matrix[i][j]+x[i][j]%2 for j in range(column)] for i in range(row)])
+  def __mul__(self,x):
+    if self.columnNo != len(x):
+      raise Exception("You are multiplying incompatible matrices")
+    multMatrix = F2matrix([self.rowNo,len(x[0])])
+    for i in range(self.rowNo):
+      for j in range(len(x[0])):
+        s = 0
+        for n in range(self.columnNo):
+          s += self[i][n]*x[n][j]
+        multMatrix[i][j] = s
+    return F2matrix(multMatrix)
+  def __rmul__(self,x):
+    if len(self[0]) != len(x):
+      raise Exception("You are multiplying incompatible matrices")
+    multMatrix = F2matrix([len(x),self.columnNo])
+    for i in range(len(x)):
+      for j in range(self.columnNo):
+        s = 0
+        for n in range(self.rowNo):
+          s += x[i][n]*self[n][j]
+        multMatrix[i][j] = s
+    return F2matrix(multMatrix)
+  def __radd__(self,x):
+    return self+x
+  def __getitem__(self,i):
+    return self.matrix[i]
+  def __setitem__(self,i,x):
+    self.matrix[i]=x
     
 
-class F2sparsematrix:
-  def __init__(self, rowNo, columnNo):
+class F2sparseMatrix:
+  def __init__(self, data):
+    self.sparseMatrix=[[y for y in x] for x in data]
+  def __repr__(self):
+    return "F2(%s)" %self.sparseMatrix
+  def __add__(self,x):
+    addSparseMatrix = []
+    for i in range(len(self.sparseMatrix)):
+      for j in range(len(x)):
+        if self.sparseMatrix[i]==x[j]: break
+        if self.sparseMatrix[i]!=x[j] and len(x)-1==j: addSparseMatrix.append(self.sparseMatrix[i])
+    for i in range(len(x)):
+      for j in range(len(self.sparseMatrix)):
+        if x[i]==self.sparseMatrix[j]: break
+        if x[i]!=self.sparseMatrix[j] and len(self.sparseMatrix)-1==j: addSparseMatrix.append(x[i])
+    return F2sparseMatrix(addSparseMatrix)
+  def __radd__(self,x):
+    return self+x
+  def __getitem__(self,i):
+    return self.sparseMatrix[i]
+  def __setitem__(self,i,x):
+    self.sparseMatrix[i]=x
+  def __mul__(self,x):
     return 0
+        
+      
+      
 
 
-coolmatrix = F2matrix(2, 2)
-print(coolmatrix.matrix)
+grey = F2matrix([2,2])
 
 green = F2(2)
 blue = F2(4)
@@ -108,4 +161,18 @@ a[1]=7
 print(a)
 print(b)
 green = F2vect([3,4,5])
-print([1,0,1][1])
+pink = F2matrix([[1,33],[1,1]])
+teal = F2matrix([[0,0],[0,1]])
+print(pink)
+pink[1][1]=0
+print(pink)
+print(teal)
+print(pink*teal)
+print([[1,33],[1,1]]*teal)
+print([[0,0],[0,1]]*teal)
+print("Sparse Matrix")
+black = F2sparseMatrix([[1,1],[1,2]])
+orange = black + [[2,2]]
+print(orange)
+cyan = [[3,1],[2,4]] + orange
+print(cyan)
