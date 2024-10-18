@@ -73,16 +73,16 @@ class F2matrix:
       self.rowNo=data[0]
       self.columnNo=data[1]
       self.matrix=[[0 for y in range(self.columnNo)] for x in range(self.rowNo)]
-  def __len__(self):
-    return len(self.matrix)
   def __repr__(self):
-    return "F2(%s)" %self.matrix
+    return "F2matrix(%s)" %self.matrix
   def __add__(self,x):
-    if len(self.matrix) !=len(x):
-      raise Exception("You are adding matrices of different row numbers")
-    row = len(self.matrix)
-    column = len(self.matrix[0])
-    return F2matrix([[self.matrix[i][j]+x[i][j]%2 for j in range(column)] for i in range(row)])
+    try:
+      if self.rowNo !=x.rowNo or self.columnNo!=x.columnNo:
+        raise Exception("You are adding matrices of different dimensions")      
+      return F2matrix([[self.matrix[i][j]+x.matrix[i][j] for j in range(self.columnNo)] for i in range(self.rowNo)])
+    except:
+      return F2matrix([[self.matrix[i][j]+x[i][j] for j in range(self.columnNo)] for i in range(self.rowNo)])
+
   def __mul__(self,x):
     if self.columnNo != len(x):
       raise Exception("You are multiplying incompatible matrices")
@@ -109,13 +109,13 @@ class F2matrix:
     return self+x
   def __getitem__(self,i):
     return self.matrix[i]
-  def __setitem__(self,i,x):
-    self.matrix[i]=x
+  def __setitem__(self,index,x):
+    self.matrix[index[0]][index[1]]=x
     
 
 class F2sparseMatrix:
   def __init__(self, data):
-    self.sparseMatrix=[[y for y in x] for x in data]
+    self.sparseMatrix=[[y for y in x] for x in data]#set of tuples
   def __repr__(self):
     return "F2(%s)" %self.sparseMatrix
   def __add__(self,x):
