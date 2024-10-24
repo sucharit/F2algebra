@@ -84,18 +84,18 @@ class F2matrix:
       return F2matrix([[self.matrix[i][j]+x[i][j] for j in range(self.columnNo)] for i in range(self.rowNo)])
 
   def __mul__(self,x):
-    if self.columnNo != len(x):
+    if self.columnNo != x.rowNo:
       raise Exception("You are multiplying incompatible matrices")
-    multMatrix = F2matrix([self.rowNo,len(x[0])])
+    multMatrix = F2matrix([self.rowNo,x.columnNo])
     for i in range(self.rowNo):
-      for j in range(len(x[0])):
+      for j in range(x.columnNo):
         s = 0
         for n in range(self.columnNo):
           s += self[i][n]*x[n][j]
         multMatrix[i][j] = s
     return F2matrix(multMatrix)
   def __rmul__(self,x):
-    if len(self[0]) != len(x):
+    if self.columnNo != len(x):
       raise Exception("You are multiplying incompatible matrices")
     multMatrix = F2matrix([len(x),self.columnNo])
     for i in range(len(x)):
@@ -115,64 +115,66 @@ class F2matrix:
 
 class F2sparseMatrix:
   def __init__(self, data):
-    self.sparseMatrix=[[y for y in x] for x in data]#set of tuples
+    self.sparseMatrix={(x[0],x[1]) for x in data}#set of tuples
+    self.rows = {x[0] for x in self.sparseMatrix}
+    self.rowNo = len(self.rows)
+    self.rowTuple = tuple(self.rows)
+    rowRowNumber = {(self.rowTuple[n],n) for n in range(len(self.rowTuple))}
+    self.rowDict = dict(rowRowNumber)
+    entriesInRow = [set() for i in range(self.rowNo)]
+    for x in self.sparseMatrix:
+      entriesInRow[self.rowDict[x[0]]].add(x[1])
+    self.entriesInRow = tuple(entriesInRow)
+    
+    self.columns = {x[1] for x in self.sparseMatrix}
+    self.columnNo = len(self.columns)
+    self.columnTuple = tuple(self.columns)
+    columnColumnNumber = {(self.columnTuple[n],n) for n in range(len(self.columnTuple))}
+    self.columnDict = dict(columnColumnNumber)
+    entriesInColumn = [set() for i in range(self.columnNo)]
+    for x in self.sparseMatrix:
+      entriesInColumn[self.columnDict[x[1]]].add(x[0])
+    self.entriesInColumn = tuple(entriesInColumn)
   def __repr__(self):
-    return "F2(%s)" %self.sparseMatrix
+    return "F2sparseMatrix(%s)" %self.sparseMatrix
   def __add__(self,x):
-    addSparseMatrix = []
-    for i in range(len(self.sparseMatrix)):
-      for j in range(len(x)):
-        if self.sparseMatrix[i]==x[j]: break
-        if self.sparseMatrix[i]!=x[j] and len(x)-1==j: addSparseMatrix.append(self.sparseMatrix[i])
-    for i in range(len(x)):
-      for j in range(len(self.sparseMatrix)):
-        if x[i]==self.sparseMatrix[j]: break
-        if x[i]!=self.sparseMatrix[j] and len(self.sparseMatrix)-1==j: addSparseMatrix.append(x[i])
-    return F2sparseMatrix(addSparseMatrix)
+    return F2sparseMatrix(self.sparseMatrix ^ x.sparseMatrix)
   def __radd__(self,x):
-    return self+x
+    return F2sparseMatrix(self.sparseMatrix ^ x.sparseMatrix)
   def __getitem__(self,i):
     return self.sparseMatrix[i]
   def __setitem__(self,i,x):
     self.sparseMatrix[i]=x
   def __mul__(self,x):
-    return 0
+    multSparseMatrix = set()
+    for i in range(self.rowNo):
+      for j in range(x.columnNo):
+        if len(self.entriesInRow[i] & x.entriesInColumn[j])%2 == 1:
+          multSparseMatrix.add((self.rowTuple[i],x.columnTuple[j]))
+    return F2sparseMatrix(multSparseMatrix)
         
       
       
 
 
-grey = F2matrix([2,2])
 
-green = F2(2)
-blue = F2(4)
-yellow = green + blue
-yellow + 2
-v=F2vect(3)
-v[2]=1
-w=1*v
-v[0]=1
-print("v")
-print(v)
-print(w)
-a=[0,1,2]
-b=a
-a[1]=7
-print(a)
-print(b)
-green = F2vect([3,4,5])
-pink = F2matrix([[1,33],[1,1]])
-teal = F2matrix([[0,0],[0,1]])
-print(pink)
-pink[1][1]=0
-print(pink)
-print(teal)
-print(pink*teal)
-print([[1,33],[1,1]]*teal)
-print([[0,0],[0,1]]*teal)
-print("Sparse Matrix")
-black = F2sparseMatrix([[1,1],[1,2]])
-orange = black + [[2,2]]
+
+#a=[0,1,2]
+#b=a
+#a[1]=7
+#c=(1,3)
+#print(a)
+#print(b)
+
+
+orange = F2sparseMatrix({(1,5),(1,2),(3,3),(6,1)})
 print(orange)
-cyan = [[3,1],[2,4]] + orange
-print(cyan)
+print(orange.rowTuple)
+print(orange.entriesInRow)
+print(orange.entriesInColumn)
+print(orange.rowDict)
+
+pink = F2sparseMatrix({(1,1),(1,2),(2,1),(2,2)})
+blue = F2sparseMatrix({(1,2),(2,2)})
+green = pink * blue
+print(green)
