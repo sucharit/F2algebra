@@ -124,7 +124,7 @@ class F2sparseMatrix:
     entriesInRow = [set() for i in range(self.rowNo)]
     for x in self.sparseMatrix:
       entriesInRow[self.rowDict[x[0]]].add(x[1])
-    self.entriesInRow = tuple(entriesInRow)
+    self.entriesInRow = tuple(frozenset(entriesInRow[i]) for i in range(self.rowNo))
     
     self.columns = {x[1] for x in self.sparseMatrix}
     self.columnNo = len(self.columns)
@@ -134,7 +134,7 @@ class F2sparseMatrix:
     entriesInColumn = [set() for i in range(self.columnNo)]
     for x in self.sparseMatrix:
       entriesInColumn[self.columnDict[x[1]]].add(x[0])
-    self.entriesInColumn = tuple(entriesInColumn)
+    self.entriesInColumn = tuple(frozenset(entriesInColumn[i]) for i in range(self.columnNo))
   def __repr__(self):
     return "F2sparseMatrix(%s)" %self.sparseMatrix
   def __add__(self,x):
@@ -152,29 +152,118 @@ class F2sparseMatrix:
         if len(self.entriesInRow[i] & x.entriesInColumn[j])%2 == 1:
           multSparseMatrix.add((self.rowTuple[i],x.columnTuple[j]))
     return F2sparseMatrix(multSparseMatrix)
-        
-      
-      
+  def __getitem__(self,index):
+    if index in self.sparseMatrix:
+      return 1
+    else:
+      return 0
+  def __setitem__(self,index,x):
+    if ((index[0],index[1]) in self.sparseMatrix and x==0):
+      self.sparseMatrix.remove((index[0],index[1]))
+    if ((index[0],index[1]) not in self.sparseMatrix and x == 1):
+      self.sparseMatrix.add((index[0],index[1]))
+    self.rows = {x[0] for x in self.sparseMatrix}
+    self.rowNo = len(self.rows)
+    self.rowTuple = tuple(self.rows)
+    rowRowNumber = {(self.rowTuple[n],n) for n in range(len(self.rowTuple))}
+    self.rowDict = dict(rowRowNumber)
+    entriesInRow = [set() for i in range(self.rowNo)]
+    for x in self.sparseMatrix:
+      entriesInRow[self.rowDict[x[0]]].add(x[1])
+    self.entriesInRow = tuple(frozenset(entriesInRow[i]) for i in range(self.rowNo))
+    
+    self.columns = {x[1] for x in self.sparseMatrix}
+    self.columnNo = len(self.columns)
+    self.columnTuple = tuple(self.columns)
+    columnColumnNumber = {(self.columnTuple[n],n) for n in range(len(self.columnTuple))}
+    self.columnDict = dict(columnColumnNumber)
+    entriesInColumn = [set() for i in range(self.columnNo)]
+    for x in self.sparseMatrix:
+      entriesInColumn[self.columnDict[x[1]]].add(x[0])
+    self.entriesInColumn = tuple(frozenset(entriesInColumn[i]) for i in range(self.columnNo))
+    
+def minNoRowNos(x):
+  rows = set(x.entriesInRow)
+  labeledRows = {(i,x.entriesInRow[i]) for i in range(x.rowNo)}
+  labeledRowsDict = dict(labeledRows)
+  labeledRowMins = {(i,min(x.entriesInRow[i])) for i in range(x.rowNo)}
+  labeledRowMinsDict = dict(labeledRowMins)
+  mins = {min(row) for row in rows}
+  minNoRowNos = dict({(i,frozenset()) for i in mins})
+  for i in range(x.rowNo):
+    minNoRowNos[labeledRowMinsDict[i]] = minNoRowNos[labeledRowMinsDict[i]] | {i}
+  return minNoRowNos
 
-
+def reduceRowSparse(x):
+  rows = set(x.entriesInRow)
+  labeledRows = {(i,x.entriesInRow[i]) for i in range(x.rowNo)}
+  labeledRowsDict = dict(labeledRows)
+  labeledRowMins = {(i,min(x.entriesInRow[i])) for i in range(x.rowNo)}
+  labeledRowMinsDict = dict(labeledRowMins)
+  mins = {min(row) for row in rows}
+  minNoRowNos = dict({(i,frozenset()) for i in mins})
+  for i in range(x.rowNo):
+    minNoRowNos[labeledRowMinsDict[i]] = minNoRowNos[labeledRowMinsDict[i]] | {i}
+  activeMins = {n for n in mins}
+  while activeMins != set():
+    selectedMin = min(activeMins)
+    if len(minNoRowNos[selectedMin]) == 1:
+      activeMins.remove(selectedMin)
+    else:
+      minRowNo = min(minNoRowNos[selectedMin])
+      maxRowNo = max(minNoRowNos[selectedMin])
+      diffSet = labeledRowsDict[minRowNo] ^ labeledRowsDict[maxRowNo]
+      if diffSet == set():
+        del labeledRowsDict[maxRowNo]
+        del labeledRowMinsDict[maxRowNo]
+        minNoRowNos[selectedMin] = minNoRowNos[selectedMin] - {maxRowNo}
+      else:
+        minNoRowNos[selectedMin] = minNoRowNos[selectedMin] - {maxRowNo}
+        labeledRowsDict[maxRowNo] = diffSet
+        newMin = min(diffSet)
+        labeledRowMinsDict[maxRowNo] = newMin
+        if newMin in minNoRowNos.keys():
+          minNoRowNos[newMin] = minNoRowNos[newMin] | frozenset({maxRowNo})
+        else:
+          minNoRowNos[newMin] = frozenset({maxRowNo})
+        activeMins.add(newMin)
+        mins.add(newMin)
+        #minNoRowNos represents the echelon form now
+  echelonMinNoRowsDict = dict({(minKey,labeledRowsDict[min(minNoRowNos[minKey])]) for minKey in mins})
+  echelonActiveMins = {n for n in mins}
+  while echelonActiveMins != set():
+    selectedMin = max(echelonActiveMins)
+    echelonActiveMins.remove(selectedMin)
+    for n in echelonActiveMins:
+      if selectedMin in echelonMinNoRowsDict[n]:
+        echelonMinNoRowsDict[n] = echelonMinNoRowsDict[n] ^ echelonMinNoRowsDict[selectedMin]
+  reducedRowEchelon = {echelonMinNoRowsDict[i] for i in echelonMinNoRowsDict.keys()}
+  return reducedRowEchelon
+    
 
 
 #a=[0,1,2]
 #b=a
+#a[2]=4
 #a[1]=7
-#c=(1,3)
 #print(a)
 #print(b)
 
 
-orange = F2sparseMatrix({(1,5),(1,2),(3,3),(6,1)})
-print(orange)
-print(orange.rowTuple)
-print(orange.entriesInRow)
-print(orange.entriesInColumn)
-print(orange.rowDict)
-
-pink = F2sparseMatrix({(1,1),(1,2),(2,1),(2,2)})
-blue = F2sparseMatrix({(1,2),(2,2)})
-green = pink * blue
-print(green)
+brown = F2matrix([[2,2,3],[1,1,1],[0,0,0]])
+pink = F2sparseMatrix({(1,1),(1,2),(2,2),(3,2),(3,3),(5,5),(5,6),(6,1),(6,8)})
+#blue = F2sparseMatrix({(1,2),(2,2),(2,100)})
+#green = pink * blue
+#print(green)
+#print(green[(2,3)]
+#pink.sparseMatrix.remove((1,1))
+#print(pink)
+#print(pink.columnTuple)
+print(pink)
+print(pink.rowTuple)
+print(pink.entriesInRow)
+print(minNoRowNos(pink))
+print(reduceRowSparse(pink))
+green = F2sparseMatrix({(1,1), (1,2), (2,2)})
+print(minNoRowNos(green))
+print(reduceRowSparse(green))
