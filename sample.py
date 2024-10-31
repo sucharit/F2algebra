@@ -333,8 +333,7 @@ def kernel(x):
 
 def image(x):
   reduceColumn = reduceColumnSparse(x)
-  print(reduceColumn)
-  image = {1 for i in reduceColumn.sparseRRE.keys}
+  image = {reduceColumn.sparseRRE[i] for i in reduceColumn.sparseRRE.keys()}
   return image
 
 
@@ -348,6 +347,7 @@ def image(x):
 
 brown = F2matrix([[2,2,3],[1,1,1],[0,0,0]])
 pink = F2sparseMatrix({(1,1),(1,2),(2,2),(3,2),(3,3),(5,5),(5,6),(6,1),(6,8)})
+green = F2sparseMatrix({(1,1),(2,1),(2,2),(3,2)})
 #blue = F2sparseMatrix({(1,2),(2,2),(2,100)})
 #green = pink * blue
 #print(green)
@@ -358,7 +358,7 @@ pink = F2sparseMatrix({(1,1),(1,2),(2,2),(3,2),(3,3),(5,5),(5,6),(6,1),(6,8)})
 print(pink)
 print(pink.rowTuple)
 print(pink.entriesInRow)
-print(minNoRowNos(pink))
 print(reduceRowSparse(pink))
 print(kernel(pink))
 print(image(pink))
+print(image(green))
