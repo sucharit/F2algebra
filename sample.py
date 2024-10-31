@@ -181,18 +181,51 @@ class F2sparseMatrix:
     for x in self.sparseMatrix:
       entriesInColumn[self.columnDict[x[1]]].add(x[0])
     self.entriesInColumn = tuple(frozenset(entriesInColumn[i]) for i in range(self.columnNo))
-    
-def minNoRowNos(x):
-  rows = set(x.entriesInRow)
-  labeledRows = {(i,x.entriesInRow[i]) for i in range(x.rowNo)}
-  labeledRowsDict = dict(labeledRows)
-  labeledRowMins = {(i,min(x.entriesInRow[i])) for i in range(x.rowNo)}
-  labeledRowMinsDict = dict(labeledRowMins)
-  mins = {min(row) for row in rows}
-  minNoRowNos = dict({(i,frozenset()) for i in mins})
-  for i in range(x.rowNo):
-    minNoRowNos[labeledRowMinsDict[i]] = minNoRowNos[labeledRowMinsDict[i]] | {i}
-  return minNoRowNos
+
+class F2sparseRRE:
+  def __init__(self, data):
+    try:
+      self.sparseRRE = dict({(i,data[i]) for i in data.keys()})
+    except AttributeError:
+      self.sparseRRE = dict({(min(data.entriesInRow[i]), data.entriesInRow[i]) for i in range(data.rowNo)})
+    try:
+      self.sparseRRESet = {data[i] for i in data.keys()}
+    except AttributeError:
+      self.sparseRRESet = {data.entriesInRow[i] for i in range(data.rowNo)}
+    self.columnMin = min(self.sparseRRE.keys())
+    self.columnMax = max(max(row) for row in self.sparseRRESet)
+    try:
+      self.pivots = data.keys()
+    except AttributeError:
+      self.pivots = {min(data.entriesInRow[i]) for i in range(data.rowNo)}
+    self.nonPivots = set(range(self.columnMin, self.columnMax + 1)) - self.pivots
+  def __repr__(self):
+    return "F2sparseRRE(%s)" %self.sparseRRESet
+  def __getitem__(self,i):
+    return self.sparseRRE[i]
+  
+#class F2sparseRCE:
+#  def __init__(self, data):
+#    try:
+#      self.sparseRCE = dict({(i,data[i]) for i in data.keys()})
+#    except AttributeError:
+#      self.sparseRCE = dict({(min(data.entriesInColumn[i]), data.entriesInColumn[i]) for i in range(data.columnNo)})
+#    try:
+#      self.sparseRCESet = {data[i] for i in data.keys()}
+#    except AttributeError:
+#      self.sparseRCESet = {data.entriesInColumn[i] for i in range(data.columnNo)}
+#    self.rowMin = min(self.sparseRCE.keys())
+#    self.rowMax = max(max(column) for column in self.sparseRCESet)
+#    try:
+#      self.pivots = data.keys()
+#    except AttributeError:
+#      self.pivots = {min(data.entriesInColumn[i]) for i in range(data.columnNo)}
+#    self.nonPivots = set(range(self.rowMin, self.rowMax + 1)) - self.pivots
+#  def __repr__(self):
+#    return "F2sparseRCE(%s)" %self.sparseRCESet
+#  def __getitem__(self,i):
+#    return self.sparseRCE[i]
+  
 
 def reduceRowSparse(x):
   rows = set(x.entriesInRow)
@@ -202,6 +235,7 @@ def reduceRowSparse(x):
   labeledRowMinsDict = dict(labeledRowMins)
   mins = {min(row) for row in rows}
   minNoRowNos = dict({(i,frozenset()) for i in mins})
+  #dictionary with keys that are the minimum nonzero entry of the rows. Given a minimum, the dictionary outputs the set of of codes that correspond to rows with minimumum zero entry being the key 
   for i in range(x.rowNo):
     minNoRowNos[labeledRowMinsDict[i]] = minNoRowNos[labeledRowMinsDict[i]] | {i}
   activeMins = {n for n in mins}
@@ -237,9 +271,71 @@ def reduceRowSparse(x):
     for n in echelonActiveMins:
       if selectedMin in echelonMinNoRowsDict[n]:
         echelonMinNoRowsDict[n] = echelonMinNoRowsDict[n] ^ echelonMinNoRowsDict[selectedMin]
-  reducedRowEchelon = {echelonMinNoRowsDict[i] for i in echelonMinNoRowsDict.keys()}
-  return reducedRowEchelon
-    
+  return F2sparseRRE(echelonMinNoRowsDict)
+
+def reduceColumnSparse(x):
+  rows = set(x.entriesInColumn)
+  labeledRows = {(i,x.entriesInColumn[i]) for i in range(x.columnNo)}
+  labeledRowsDict = dict(labeledRows)
+  labeledRowMins = {(i,min(x.entriesInColumn[i])) for i in range(x.columnNo)}
+  labeledRowMinsDict = dict(labeledRowMins)
+  mins = {min(row) for row in rows}
+  minNoRowNos = dict({(i,frozenset()) for i in mins})
+  #dictionary with keys that are the minimum nonzero entry of the rows. Given a minimum, the dictionary outputs the set of of codes that correspond to rows with minimumum zero entry being the key 
+  for i in range(x.columnNo):
+    minNoRowNos[labeledRowMinsDict[i]] = minNoRowNos[labeledRowMinsDict[i]] | {i}
+  activeMins = {n for n in mins}
+  while activeMins != set():
+    selectedMin = min(activeMins)
+    if len(minNoRowNos[selectedMin]) == 1:
+      activeMins.remove(selectedMin)
+    else:
+      minRowNo = min(minNoRowNos[selectedMin])
+      maxRowNo = max(minNoRowNos[selectedMin])
+      diffSet = labeledRowsDict[minRowNo] ^ labeledRowsDict[maxRowNo]
+      if diffSet == set():
+        del labeledRowsDict[maxRowNo]
+        del labeledRowMinsDict[maxRowNo]
+        minNoRowNos[selectedMin] = minNoRowNos[selectedMin] - {maxRowNo}
+      else:
+        minNoRowNos[selectedMin] = minNoRowNos[selectedMin] - {maxRowNo}
+        labeledRowsDict[maxRowNo] = diffSet
+        newMin = min(diffSet)
+        labeledRowMinsDict[maxRowNo] = newMin
+        if newMin in minNoRowNos.keys():
+          minNoRowNos[newMin] = minNoRowNos[newMin] | frozenset({maxRowNo})
+        else:
+          minNoRowNos[newMin] = frozenset({maxRowNo})
+        activeMins.add(newMin)
+        mins.add(newMin)
+        #minNoRowNos represents the echelon form now
+  echelonMinNoRowsDict = dict({(minKey,labeledRowsDict[min(minNoRowNos[minKey])]) for minKey in mins})
+  echelonActiveMins = {n for n in mins}
+  while echelonActiveMins != set():
+    selectedMin = max(echelonActiveMins)
+    echelonActiveMins.remove(selectedMin)
+    for n in echelonActiveMins:
+      if selectedMin in echelonMinNoRowsDict[n]:
+        echelonMinNoRowsDict[n] = echelonMinNoRowsDict[n] ^ echelonMinNoRowsDict[selectedMin]
+  return F2sparseRRE(echelonMinNoRowsDict)
+
+def kernel(x):
+  kernel = set()
+  reduceRow = reduceRowSparse(x)
+  for n in reduceRow.nonPivots:
+    generator = {n}
+    for i in reduceRow.pivots:
+      if (i < n) and (n in reduceRow.sparseRRE[i]):
+        generator.add(i)
+    generator = frozenset(generator)
+    kernel.add(generator)
+  return kernel
+
+def image(x):
+  reduceColumn = reduceColumnSparse(x)
+  print(reduceColumn)
+  image = {1 for i in reduceColumn.sparseRRE.keys}
+  return image
 
 
 #a=[0,1,2]
@@ -264,6 +360,5 @@ print(pink.rowTuple)
 print(pink.entriesInRow)
 print(minNoRowNos(pink))
 print(reduceRowSparse(pink))
-green = F2sparseMatrix({(1,1), (1,2), (2,2)})
-print(minNoRowNos(green))
-print(reduceRowSparse(green))
+print(kernel(pink))
+print(image(pink))
