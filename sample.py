@@ -334,6 +334,16 @@ def columnEchelonSparse(x):
   echelonMinNoRowsDict = dict({(minKey,labeledRowsDict[min(minNoRowNos[minKey])]) for minKey in mins})
   return(F2sparseEchelon(echelonMinNoRowsDict))
 
+#class subspace:
+#k-dim subspaces of R^n, remember k, n, an ordered basis (k\times n sparse matrix or its transpose)
+#should have function to check if a given vector in R^n is in the subspace, and if so, returns coefficients in terms of basis elts.
+
+
+#class subspace of subspace:
+#example im subset ker subset R^n , remember a basis of im, then a basis for ker, which contains the basis for im as its first elements.
+#similar functions
+
+
 def reduceColumnSparse(x):
   rows = set(x.entriesInColumn)
   labeledRows = {(i,x.entriesInColumn[i]) for i in range(x.columnNo)}

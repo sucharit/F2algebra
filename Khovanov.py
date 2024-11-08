@@ -1,5 +1,8 @@
 from itertools import chain, combinations
 
+exec(open("sample.py").read())
+
+"""
 class F2sparseMatrix:
   def __init__(self, data):
     self.sparseMatrix={(x[0],x[1]) for x in data}#set of tuples
@@ -68,6 +71,7 @@ class F2sparseMatrix:
     for x in self.sparseMatrix:
       entriesInColumn[self.columnDict[x[1]]].add(x[0])
     self.entriesInColumn = tuple(frozenset(entriesInColumn[i]) for i in range(self.columnNo))
+"""
 
 def powerSet(iterable):
     "powerset([1,2,3]) → () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
