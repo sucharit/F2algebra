@@ -112,6 +112,10 @@ def resolution(diagram, u):
 
 class khovanovBasis:
     def __init__(self, diagram):
+        """
+        Description of variables and functions in this class
+        Lots of comments.
+        """
         noCrossingNos = diagram.noCrossingNos
         indexToCrossingNo = diagram.indexToCrossingNo
         negativeCrossingNo = diagram.negativeCrossingNo
@@ -367,4 +371,4 @@ f = flowCategory(knot, -1, 1)
 print('pontrjaginThoms:', f.pontrjaginThoms)
 print('boundaries:', f.boundaries)
 bM = matchings(f, {2,3,6,7})
-print(zCoefficient(f, bM,1))
+#print(zCoefficient(f, bM,1))
