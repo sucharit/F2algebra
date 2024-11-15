@@ -112,6 +112,7 @@ class F2matrix:
 
 class F2sparseMatrix:
   def __init__(self, data):
+    self.officialColumnRange = (0,0)
     self.sparseMatrix={(x[0],x[1]) for x in data}#set of tuples
     self.rows = {x[0] for x in self.sparseMatrix}
     self.rowNo = len(self.rows)
@@ -189,9 +190,17 @@ class F2sparseEchelon:
       self.sparseEchelon = dict({(min(data.entriesInRow[i]), data.entriesInRow[i]) for i in range(data.rowNo)})
       self.sparseEchelonSet = {data.entriesInRow[i] for i in range(data.rowNo)}
       self.pivots = {min(data.entriesInRow[i]) for i in range(data.rowNo)}
-    self.columnMin = min(self.sparseEchelon.keys())
-    self.columnMax = max(max(row) for row in self.sparseEchelonSet)
-    self.nonPivots = set(range(self.columnMin, self.columnMax + 1)) - self.pivots
+    try:
+      self.columnMin = min(self.sparseEchelon.keys())
+      self.columnMax = max(max(row) for row in self.sparseEchelonSet)
+    except ValueError:
+      self.columnMin = 'Nonexistent'
+      self.columnMax = 'Nonexistent'
+    try:
+      self.nonPivots = set(range(self.columnMin, self.columnMax + 1)) - self.pivots
+    except TypeError:
+      self.nonPivots = set()
+      
   def __repr__(self):
     return "F2sparseEchelon(%s)" %self.sparseEchelonSet
   def __getitem__(self,i):
@@ -400,8 +409,16 @@ def kernel(x):
         generator.add(i)
     generator = frozenset(generator)
     kernel.add(generator)
-  #return kernel
-  return rowEchelonSparse(kernel)
+  if kernel == set():
+    return rowEchelonSparse(kernel)
+  else:
+    columnMin = min({min(x) for x in kernel})
+    columnMax = max({max(x) for x in kernel})
+    for n in range(x.officialColumnRange[0], columnMin):
+      kernel.add(frozenset({n}))
+    for n in range(columnMax + 1, x.officialColumnRange[1] + 1):
+      kernel.add(frozenset({n}))
+    return rowEchelonSparse(kernel)
 
 def image(x):
   reduceColumn = columnEchelonSparse(x)
@@ -432,11 +449,11 @@ green = F2sparseMatrix({(1,1),(2,1),(2,2),(3,2)})
 #pink.sparseMatrix.remove((1,1))
 #print(pink)
 #print(pink.columnTuple)
-print(pink)
-print(pink.rowTuple)
-print(pink.entriesInRow)
-print(reduceRowSparse(pink))
-print(kernel(pink))
-print(image(pink))
-brown = F2sparseMatrix({(4,2),(5,2),(6,2),(5,3),(6,3),(7,3)})
-print(homology(pink,brown))
+#print(pink)
+#print(pink.rowTuple)
+#print(pink.entriesInRow)
+#print(reduceRowSparse(pink))
+#print(kernel(pink))
+#print(image(pink))
+#brown = F2sparseMatrix({(4,2),(5,2),(6,2),(5,3),(6,3),(7,3)})
+#print(homology(pink,brown))
