@@ -123,8 +123,13 @@ class F2sparseMatrix:
     for x in self.sparseMatrix:
       entriesInRow[self.rowDict[x[0]]].add(x[1])
     self.entriesInRow = tuple(frozenset(entriesInRow[i]) for i in range(self.rowNo))
-    
     self.columns = {x[1] for x in self.sparseMatrix}
+    try:
+      self.columnMin = min(self.columns)
+      self.columnMax = max(self.columns)
+    except ValueError:
+      self.columnMin = 'Nonexistent'
+      self.columnMax = 'Nonexistent'
     self.columnNo = len(self.columns)
     self.columnTuple = tuple(self.columns)
     columnColumnNumber = {(self.columnTuple[n],n) for n in range(len(self.columnTuple))}
@@ -145,11 +150,20 @@ class F2sparseMatrix:
     self.sparseMatrix[i]=x
   def __mul__(self,x):
     multSparseMatrix = set()
-    for i in range(self.rowNo):
-      for j in range(x.columnNo):
-        if len(self.entriesInRow[i] & x.entriesInColumn[j])%2 == 1:
-          multSparseMatrix.add((self.rowTuple[i],x.columnTuple[j]))
-    return F2sparseMatrix(multSparseMatrix)
+    if isinstance(x, F2sparseMatrix):
+      for i in range(self.rowNo):
+        for j in range(x.columnNo):
+          if len(self.entriesInRow[i] & x.entriesInColumn[j])%2 == 1:
+            multSparseMatrix.add((self.rowTuple[i],x.columnTuple[j]))
+      return F2sparseMatrix(multSparseMatrix)
+    elif isinstance(x, set) or isinstance(x, frozenset):
+      multVect = set()
+      for i in range(self.rowNo):
+        if len(self.entriesInRow[i] & x) % 2 == 1:
+          multVect.add(self.rowTuple[i])
+      return multVect
+    else:
+      raise ValueError('not multiplying sparseMatrix with something compatible')
   def __getitem__(self,index):
     if index in self.sparseMatrix:
       return 1
@@ -182,22 +196,26 @@ class F2sparseMatrix:
 
 class F2sparseEchelon:
   def __init__(self, data):
-    try:
+    if isinstance(data, dict):
       self.sparseEchelon = dict({(i,data[i]) for i in data.keys()})
-      self.sparseEchelonSet = {data[i] for i in data.keys()}
       self.pivots = data.keys()
-    except AttributeError:
+      self.sparseEchelonSet = {data[i] for i in data.keys()}
+    elif isinstance(data, F2sparseMatrix):
       self.sparseEchelon = dict({(min(data.entriesInRow[i]), data.entriesInRow[i]) for i in range(data.rowNo)})
       self.sparseEchelonSet = {data.entriesInRow[i] for i in range(data.rowNo)}
       self.pivots = {min(data.entriesInRow[i]) for i in range(data.rowNo)}
+    sortedPivots = tuple(sorted(self.pivots))
+    self.sortedPivots = sortedPivots
+    orderedSparseEchelonSet = tuple(data[sortedPivots[n]] for n in range(len(sortedPivots)))
+    self.orderedSparseEchelonSet = orderedSparseEchelonSet
     try:
-      self.columnMin = min(self.sparseEchelon.keys())
-      self.columnMax = max(max(row) for row in self.sparseEchelonSet)
+      columnMin = min(self.sparseEchelon.keys())
+      columnMax = max(max(row) for row in self.sparseEchelonSet)
     except ValueError:
-      self.columnMin = 'Nonexistent'
-      self.columnMax = 'Nonexistent'
+      columnMin = 'Nonexistent'
+      columnMax = 'Nonexistent'
     try:
-      self.nonPivots = set(range(self.columnMin, self.columnMax + 1)) - self.pivots
+      self.nonPivots = set(range(columnMin, columnMax + 1)) - self.pivots
     except TypeError:
       self.nonPivots = set()
       
@@ -207,14 +225,17 @@ class F2sparseEchelon:
     return self.sparseEchelon[i]
 
 def rowEchelonSparse(x):
-  try:
+  if isinstance(x,F2sparseMatrix):
     rowNo = x.rowNo
     entriesInRow = x.entriesInRow
     rows = set(entriesInRow)
-  except AttributeError:
+  elif isinstance(x,set):
     rows = x
+    rows.discard(set())
     rowNo = len(rows)
     entriesInRow = tuple(x)
+  else:
+    raise ValueError('Incompatible object to make echelon')
   labeledRows = {(i,entriesInRow[i]) for i in range(rowNo)}
   labeledRowsDict = dict(labeledRows)
   labeledRowMins = {(i,min(entriesInRow[i])) for i in range(rowNo)}
@@ -253,14 +274,17 @@ def rowEchelonSparse(x):
   return F2sparseEchelon(echelonMinNoRowsDict)
 
 def reduceRowSparse(x):
-  try:
+  if isinstance(x, F2sparseMatrix):
     rowNo = x.rowNo
     entriesInRow = x.entriesInRow
     rows = set(entriesInRow)
-  except AttributeError:
+  elif isinstance(x, set):
     rows = x
+    rows.discard(set())
     rowNo = len(rows)
     entriesInRow = tuple(x)
+  else:
+    raise ValueError('Incompatible object to make echelon')
   labeledRows = {(i,entriesInRow[i]) for i in range(rowNo)}
   labeledRowsDict = dict(labeledRows)
   labeledRowMins = {(i,min(entriesInRow[i])) for i in range(rowNo)}
@@ -343,15 +367,6 @@ def columnEchelonSparse(x):
   echelonMinNoRowsDict = dict({(minKey,labeledRowsDict[min(minNoRowNos[minKey])]) for minKey in mins})
   return(F2sparseEchelon(echelonMinNoRowsDict))
 
-#class subspace:
-#k-dim subspaces of R^n, remember k, n, an ordered basis (k\times n sparse matrix or its transpose)
-#should have function to check if a given vector in R^n is in the subspace, and if so, returns coefficients in terms of basis elts.
-
-
-#class subspace of subspace:
-#example im subset ker subset R^n , remember a basis of im, then a basis for ker, which contains the basis for im as its first elements.
-#similar functions
-
 
 def reduceColumnSparse(x):
   rows = set(x.entriesInColumn)
@@ -409,28 +424,88 @@ def kernel(x):
         generator.add(i)
     generator = frozenset(generator)
     kernel.add(generator)
-  if kernel == set():
-    return rowEchelonSparse(kernel)
+  if x.sparseMatrix == set():
+    for n in range(x.officialColumnRange[0], x.officialColumnRange[1] + 1):
+      kernel.add(frozenset({n}))
+    return reduceRowSparse(kernel)
   else:
-    columnMin = min({min(x) for x in kernel})
-    columnMax = max({max(x) for x in kernel})
+    columnMin = x.columnMin
+    columnMax = x.columnMax
     for n in range(x.officialColumnRange[0], columnMin):
       kernel.add(frozenset({n}))
     for n in range(columnMax + 1, x.officialColumnRange[1] + 1):
       kernel.add(frozenset({n}))
-    return rowEchelonSparse(kernel)
+    return reduceRowSparse(kernel)
+
+def nullity(x):
+  xKernel = kernel(x)
+  return len(xImage.pivots)
 
 def image(x):
-  reduceColumn = columnEchelonSparse(x)
+  reduceColumn = reduceColumnSparse(x)
   return reduceColumn
+
+def rank(x):
+  xImage = image(x)
+  return len(xImage.pivots)
 
 def homology(x,y):
   xKernel = kernel(x)
   yImage = image(y)
+  if len(xKernel.pivots) == len(yImage.pivots):
+    return F2sparseEchelon(dict())
   leftOverPivots = xKernel.pivots - yImage.pivots
   kernelSubspace = dict({(pivot, xKernel[pivot]) for pivot in leftOverPivots})
+  
   return F2sparseEchelon(kernelSubspace)
 
+def systemOfEquationsSolution(coefficientMatrix, rightHandSide):
+  if coefficientMatrix.columns != set():
+    columnMax = max(coefficientMatrix.columns)
+  else:
+    columnMax = 0
+  j = columnMax + 1
+  coefficientMatrixSet = coefficientMatrix.sparseMatrix
+  equationMatrixSet = coefficientMatrixSet
+  for i in rightHandSide:
+    equationMatrixSet.add((i,j))
+  equationMatrix = F2sparseMatrix(equationMatrixSet)
+  reducedEquation = reduceRowSparse(equationMatrix)
+  solution = set()
+  for n in reducedEquation.pivots:
+    if j in reducedEquation.sparseEchelon[n]:
+      solution.add(n)
+  return solution
+
+def homologyProjection(homologyModule, imageModule, kernelElement):
+  homologySortedPivots = homologyModule.sortedPivots
+  homologyDim = len(homologySortedPivots)
+  imageSortedPivots = imageModule.sortedPivots
+  imageDim = len(imageSortedPivots)
+  equationMatrixSet = set()
+  for n in range(homologyDim):
+    j = n
+    for i in homologyModule.sparseEchelon[homologySortedPivots[j]]:
+      equationMatrixSet.add((i,j))
+  for n in range(imageDim):
+    j = n + len(homologySortedPivots)
+    for i in imageModule.sparseEchelon[imageSortedPivots[n]]:
+      equationMatrixSet.add((i,j))
+  equationMatrix = F2sparseMatrix(equationMatrixSet)
+  solutionSet = systemOfEquationsSolution(equationMatrix, kernelElement)
+  return solutionSet & set(range(homologyDim))
+
+def intersectionDim(space1,space2):
+  basis1 = space1.sparseEchelonSet
+  rank1 = len(space1.pivots)
+  basis2 = space2.sparseEchelonSet
+  rank2 = len(space2.pivots)
+  basisUnion = basis1 | basis2
+  subspaceSum = reduceRowSparse(basisUnion)
+  rankOfSum = len(subspaceSum.pivots)
+  return rank1 + rank2 - rankOfSum
+  
+  
 #a=[0,1,2]
 #b=a
 #a[2]=4
@@ -439,9 +514,8 @@ def homology(x,y):
 #print(b)
 
 
-brown = F2matrix([[2,2,3],[1,1,1],[0,0,0]])
-pink = F2sparseMatrix({(1,1),(1,2),(2,2),(3,2),(3,3),(5,5),(5,6),(6,1),(6,8)})
-green = F2sparseMatrix({(1,1),(2,1),(2,2),(3,2)})
+#brown = F2matrix([[2,2,3],[1,1,1],[0,0,0]])
+#green = F2sparseMatrix({(1,1),(2,1),(2,2),(3,2)})
 #blue = F2sparseMatrix({(1,2),(2,2),(2,100)})
 #green = pink * blue
 #print(green)
@@ -455,5 +529,27 @@ green = F2sparseMatrix({(1,1),(2,1),(2,2),(3,2)})
 #print(reduceRowSparse(pink))
 #print(kernel(pink))
 #print(image(pink))
-#brown = F2sparseMatrix({(4,2),(5,2),(6,2),(5,3),(6,3),(7,3)})
-#print(homology(pink,brown))
+#pink = F2sparseMatrix({(1,1),(1,2),(2,2),(3,2),(3,3),(5,5),(5,6),(6,1),(6,8),(10,10),(11,10)})
+#brown = F2sparseMatrix({(4,2),(5,2),(6,2),(5,3),(6,3),(7,3),(2,2),(10,10),(11,10)})
+#print(image(pink))
+#print(image(brown))
+#print(intersectionDim(image(pink),image(brown)))
+#h = homology(pink,brown)
+#print(pink * brown)
+#print('kernel:', kernel(pink))
+#print(h)
+#print(h.orderedSparseEchelonSet)
+#print(homologyProjection(h, {0,1,5,6,7}))
+#blue = {1,2,3}
+#print(green * blue)
+#e = F2sparseMatrix({(12, 4), (4, 0), (5, 1), (9, 2), (8, 3), (9, 8), (10, 9), (11, 8), (6, 5), (7, 10), (12, 9), (3, 0), (12, 6), (10, 2), (9, 10), (0, 1), (0, 7), (1, 2), (11, 7), (7, 9), (5, 5), (8, 4), (5, 8), (11, 3), (2, 0), (8, 10), (1, 4), (0, 6), (10, 1), (1, 7), (6, 6), (7, 5), (6, 3)})
+#print('reduceRow:', reduceRowSparse(e))
+#k = kernel(e)
+#print(k)
+#print(e * {4,5,6,7,8})
+#print(pink * brown)
+#h = homology(pink, brown)
+#I = image(brown)
+#print(h)
+#print(I)
+#print(homologyProjection(h,I,{5,6,7}))
